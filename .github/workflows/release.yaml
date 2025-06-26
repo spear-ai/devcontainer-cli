@@ -1,0 +1,120 @@
+name: Release
+on:
+  schedule:
+    - cron: "0 0 * * 1" # Every Monday
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version of `@devcontainers/cli`.
+        default: latest
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    needs:
+      - resolve-version
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+      - name: Install Node.js dependencies
+        run: npm install @devcontainers/cli@${{ needs.resolve-version.outputs.version }} @yao-pkg/pkg@6.5.1
+      - name: Build binaries
+        run: ./node_modules/.bin/pkg node_modules/@devcontainers/cli/devcontainer.js --out-dir dist -t node22-macos-arm64,node22-macos-x64
+      - name: Rename binaries
+        run: |
+          mv dist/devcontainer-arm64 dist/devcontainer-macos-arm64
+          mv dist/devcontainer-x64 dist/devcontainer-macos-x64
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: binaries-macos
+          path: dist/
+  build-rest:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-version
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+      - name: Install Node.js dependencies
+        run: npm install @devcontainers/cli@${{ needs.resolve-version.outputs.version }} @yao-pkg/pkg@6.5.1
+      - name: Build binaries
+        run: ./node_modules/.bin/pkg node_modules/@devcontainers/cli/devcontainer.js --out-dir dist -t node22-alpine-arm64,node22-alpine-x64,node22-linux-arm64,node22-linux-x64,node22-windows-arm64,node22-windows-x64
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: binaries-rest
+          path: dist/
+  build-windows:
+    runs-on: windows-latest
+    needs:
+      - resolve-version
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+      - name: Install Node.js dependencies
+        run: npm install @devcontainers/cli@${{ needs.resolve-version.outputs.version }} @yao-pkg/pkg@6.5.1
+      - name: Build binaries
+        run: ./node_modules/.bin/pkg node_modules/@devcontainers/cli/devcontainer.js --out-dir dist -t node22-windows-arm64,node22-windows-x64
+      - name: Rename binaries
+        run: |
+          mv dist/devcontainer-arm64 dist/devcontainer-windows-arm64
+          mv dist/devcontainer-x64 dist/devcontainer-windows-x64
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: binaries-windows
+          path: dist/
+  release:
+    runs-on: ubuntu-latest
+    needs:
+      - build-macos
+      - build-rest
+      - build-windows
+      - resolve-version
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+      - name: Download artifacts (MacOS)
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: binaries-macos
+          path: ./dist
+      - name: Download artifacts (Windows)
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: binaries-windows
+          path: ./dist
+      - name: Download artifacts (Rest)
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: binaries-rest
+          path: ./dist
+      - name: Create release
+        uses: softprops/action-gh-release@v2.3.2
+        with:
+          files: ./dist/**
+          tag_name: "@spear-ai/devcontainer-cli@${{ needs.resolve-version.outputs.version }}"
+          token: ${{ secrets.GH_TOKEN }}
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve-version.outputs.version }}
+    permissions: write-all
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+      - id: resolve-version
+        name: Resolve CLI version
+        run: |
+          VERSION=$(npm view @devcontainers/cli@${{ github.event.inputs.version }} version)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
