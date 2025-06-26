@@ -60,7 +60,7 @@ jobs:
       - name: Install Node.js dependencies
         run: npm install @devcontainers/cli@${{ needs.resolve-version.outputs.version }} @yao-pkg/pkg@6.5.1
       - name: Build binaries
-        run: ./node_modules/.bin/pkg node_modules/@devcontainers/cli/devcontainer.js --out-dir dist -t node22-windows-x64
+        run: ./node_modules/.bin/pkg node_modules/@devcontainers/cli/devcontainer.js --out-dir dist -t node22-windows-arm64
       # - name: Rename binaries
       #   run: |
       #     mv dist/devcontainer-arm64 dist/devcontainer-windows-arm64
